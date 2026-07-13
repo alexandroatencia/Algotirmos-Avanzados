@@ -15,6 +15,7 @@ struct Pedido {
 };
 
 struct Camion {
+    int id;
     int peso;
     vector<Pedido> pedido;
 };
@@ -23,10 +24,24 @@ bool compara(const Pedido& a, const Pedido& b) {
     return a.peso > b.peso;
 }
 
+bool compara_camion(const Camion& a, const Camion& b) {
+    return a.peso > b.peso;
+}
+
 int buscar_indice(const vector<Pedido>& v_pedido, double limite_RCL) {
     int indice = 0;
     for (int i = 0; i < v_pedido.size(); i++) {
         if (v_pedido[i].peso >= limite_RCL) {
+            indice++;
+        }
+    }
+    return (indice == 0) ? 1 : indice;
+}
+
+int buscar_indice_camion(const vector<Camion>& v_camion, double limite_RCL_camion) {
+    int indice = 0;
+    for (int i = 0; i < v_camion.size(); i++) {
+        if (v_camion[i].peso >= limite_RCL_camion) {
             indice++;
         }
     }
@@ -42,6 +57,7 @@ void grasp_pedidos(Pedido* pedido, int n, int capacidad) {
     for (int i = 0; i < ITERACIONES; i++) {
         vector<Pedido> v_pedido;
         vector<Camion> v_camion;
+        int indice_camion = 0;
         int cantidad_camiones = 0;
         v_pedido.insert(v_pedido.begin(), pedido, pedido + n);
 
@@ -57,26 +73,37 @@ void grasp_pedidos(Pedido* pedido, int n, int capacidad) {
             vector<Pedido> v_pedido_actual;
             v_pedido_actual.push_back(pedido_actual);
             if (v_camion.empty()) {
-                v_camion.push_back({pedido_actual.peso, {v_pedido_actual}});
+                v_camion.push_back({indice_camion++, pedido_actual.peso, {v_pedido_actual}});
                 v_pedido.erase(v_pedido.begin() + indice_random);
                 cantidad_camiones++;
                 continue;
             }
 
+            vector<Camion> v_camion_valido;
             for (int j = 0; j < v_camion.size(); j++) {
-                if (v_camion[j].peso + pedido_actual.peso <= capacidad) {
-                    v_camion[j].peso += pedido_actual.peso;
-                    v_camion[j].pedido.push_back(pedido_actual);
-                    v_pedido.erase(v_pedido.begin() + indice_random);
-                    insertado = true;
-                    break;
-                }
+                if (v_camion[j].peso + pedido_actual.peso <= capacidad)
+                    v_camion_valido.push_back(v_camion[j]);
             }
 
-            if (insertado == false) {
-                v_camion.push_back({pedido_actual.peso, {v_pedido_actual}});
+            if (v_camion_valido.empty()) {
+                v_camion.push_back({indice_camion++, pedido_actual.peso, {v_pedido_actual}});
                 v_pedido.erase(v_pedido.begin() + indice_random);
                 cantidad_camiones++;
+            } else {
+                sort(v_camion_valido.begin(), v_camion_valido.end(), compara_camion);
+                int beta_camion = v_camion_valido.front().peso;
+                int tau_camion = v_camion_valido.back().peso;
+                double limite_RCL_camion = beta_camion - ALPHA * (beta_camion - tau_camion);
+                int indice_RCL_camion = buscar_indice_camion(v_camion_valido, limite_RCL_camion);
+                int indice_random_camion = rand() % indice_RCL_camion;
+
+                for (int k = 0; k < v_camion.size(); k++) {
+                    if (v_camion[k].id == v_camion_valido[indice_random_camion].id) {
+                        v_camion[k].peso += pedido_actual.peso;
+                        v_camion[k].pedido.push_back(pedido_actual);
+                        v_pedido.erase(v_pedido.begin() + indice_random);
+                    }
+                }
             }
         }
         if (total_camiones > cantidad_camiones) {
